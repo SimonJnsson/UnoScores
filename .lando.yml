@@ -1,0 +1,26 @@
+name: uno
+recipe: laravel
+config:
+  webroot: public
+  php: "8.4"
+
+services:
+  appserver:
+    build_as_root:
+      - apt-get update -y && pecl install pcov && docker-php-ext-enable pcov
+    build:
+      - composer i
+  database:
+    portforward: 3307
+
+  node:
+    type: node:18
+    scanner: false
+    ports:
+      - 3009:3009
+    build:
+      - npm install
+
+tooling:
+  npm:
+    service: node

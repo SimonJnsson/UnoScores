@@ -8,19 +8,20 @@ services:
   appserver:
     build_as_root:
       - apt-get update -y && pecl install pcov && docker-php-ext-enable pcov
+      - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+      - apt-get install -y nodejs
     build:
       - composer i
+      - npm install
+    ports:
+      - 3009:3009
   database:
     portforward: 3307
 
-  node:
-    type: node:18
-    scanner: false
-    ports:
-      - 3009:3009
-    build:
-      - npm install
-
 tooling:
   npm:
-    service: node
+    service: appserver
+  node:
+    service: appserver
+  php:
+    service: appserver

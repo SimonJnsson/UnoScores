@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Game;
+use App\Models\HandHistory;
 use App\Models\Player;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,6 +16,19 @@ class GameController extends Controller
         return Inertia::render('Game/Create');
     }
 
+    public function index(): Response
+    {
+        $activeGames = Game::where('created_by', auth()->id())
+            ->whereIn('status', ['waiting_for_players', 'active'])
+            ->with(['players', 'winner'])
+            ->latest()
+            ->get();
+
+        return Inertia::render('Game/Index', [
+            'activeGames' => $activeGames,
+        ]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -24,7 +38,8 @@ class GameController extends Controller
 
         $game = Game::create([
             'created_by' => auth()->id(),
-            'status' => 'waiting_for_players',
+            'status' => 'active',
+            'started_at' => now(),
         ]);
 
         foreach ($request->players as $playerName) {
@@ -39,7 +54,13 @@ class GameController extends Controller
 
     public function show(Game $game): Response
     {
-        $game->load(['players', 'winner']);
+        $game->load([
+            'players',
+            'winner',
+            'handHistories' => function ($query) {
+                $query->with('player')->latest();
+            },
+        ])->append('leader', 'points_to_leader');
 
         return Inertia::render('Game/Show', [
             'game' => $game,
@@ -58,6 +79,13 @@ class GameController extends Controller
         }
 
         $player->increment('points', $request->points);
+
+        // Create hand history record
+        HandHistory::create([
+            'game_id' => $game->id,
+            'player_id' => $player->id,
+            'points_received' => $request->points,
+        ]);
 
         // Check if player reached 500 points or more
         if ($player->points >= 500) {
@@ -78,7 +106,8 @@ class GameController extends Controller
         // Create a new game with the same players
         $newGame = Game::create([
             'created_by' => auth()->id(),
-            'status' => 'waiting_for_players',
+            'status' => 'active',
+            'started_at' => now(),
         ]);
 
         // Copy all players with reset points
@@ -92,5 +121,14 @@ class GameController extends Controller
 
         return redirect()->route('games.show', $newGame)
             ->with('success', 'New game started with the same players!');
+    }
+
+    public function endGame(Game $game)
+    {
+        $game->update([
+            'status' => 'ended',
+        ]);
+
+        return back()->with('success', 'Game ended');
     }
 }

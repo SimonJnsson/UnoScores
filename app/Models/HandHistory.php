@@ -6,24 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Player extends Model
+class HandHistory extends Model
 {
-    /** @use HasFactory<\Database\Factories\PlayerFactory> */
+    /** @use HasFactory<\Database\Factories\HandHistoryFactory> */
     use HasFactory;
 
     protected $guarded = [];
-
-    protected $appends = [
-        'is_leader',
-    ];
 
     public function game(): BelongsTo
     {
         return $this->belongsTo(Game::class);
     }
 
-    public function getIsLeaderAttribute(): bool
+    public function player(): BelongsTo
     {
-        return $this->game->players()->orderByDesc('points')->first()?->id === $this->id;
+        return $this->belongsTo(Player::class);
     }
 }

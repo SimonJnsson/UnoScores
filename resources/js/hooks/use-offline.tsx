@@ -52,7 +52,7 @@ export function useOffline() {
 
     const addPointsOffline = (playerId: string, points: number) => {
         if (!currentOfflineGame) return false;
-        
+
         const success = offlineStorage.addPointsToPlayer(currentOfflineGame.id, playerId, points);
         if (success) {
             refreshCurrentGame();
@@ -62,7 +62,7 @@ export function useOffline() {
 
     const endOfflineGame = (winnerId?: string) => {
         if (!currentOfflineGame) return false;
-        
+
         const success = offlineStorage.endGame(currentOfflineGame.id, winnerId);
         if (success) {
             refreshCurrentGame();
@@ -85,7 +85,7 @@ export function useOffline() {
 
     const triggerSync = async () => {
         if (isSyncing || !isOnline) return null;
-        
+
         setIsSyncing(true);
         try {
             return await syncManager.syncWhenOnline();

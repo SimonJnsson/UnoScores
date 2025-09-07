@@ -28,8 +28,22 @@ test('authenticated user can access dashboard', function () {
     );
 });
 
+test('games index page loads for authenticated users', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)->get('/games');
+
+    $response->assertStatus(200);
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('Game/Index')
+    );
+});
+
 test('unauthenticated users are redirected to login', function () {
     $response = $this->get('/games/create');
+    $response->assertRedirect('/login');
+
+    $response = $this->get('/games');
     $response->assertRedirect('/login');
 
     $response = $this->get('/dashboard');

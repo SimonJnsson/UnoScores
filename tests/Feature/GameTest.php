@@ -18,7 +18,7 @@ it('can create a new game with players', function () {
 
     $game = Game::latest()->first();
     expect($game->created_by)->toBe($user->id);
-    expect($game->status)->toBe('waiting_for_players');
+    expect($game->status)->toBe('active');
     expect($game->players)->toHaveCount(3);
     expect($game->players->pluck('name')->toArray())->toBe(['Alice', 'Bob', 'Charlie']);
 });
@@ -184,7 +184,7 @@ it('can start a new game with play again', function () {
     $newGame = Game::where('id', '!=', $game->id)->latest()->first();
     expect($newGame)->not->toBeNull();
     expect($newGame->id)->not->toBe($game->id);
-    expect($newGame->status)->toBe('waiting_for_players');
+    expect($newGame->status)->toBe('active');
     expect($newGame->players)->toHaveCount(3);
     expect($newGame->players->pluck('name')->toArray())->toBe(['Alice', 'Bob', 'Charlie']);
     expect($newGame->players->pluck('points')->toArray())->toBe([0, 0, 0]);

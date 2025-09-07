@@ -36,4 +36,23 @@ class Game extends Model
     {
         return $this->belongsTo(Player::class, 'winner_id');
     }
+
+    public function getLeaderAttribute(): ?Player
+    {
+        return $this->players()
+            ->orderByDesc('points')
+            ->first();
+    }
+
+    public function getPointsToLeaderAttribute(): int
+    {
+        [$leader, $second] = $this->players()->orderByDesc('points')->limit(2)->get();
+
+        return $leader->points - $second->points;
+    }
+
+    public function handHistories(): HasMany
+    {
+        return $this->hasMany(HandHistory::class);
+    }
 }

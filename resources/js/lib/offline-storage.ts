@@ -38,13 +38,13 @@ class OfflineStorage {
     saveGame(game: OfflineGame): void {
         const games = this.getGames();
         const existingIndex = games.findIndex(g => g.id === game.id);
-        
+
         if (existingIndex >= 0) {
             games[existingIndex] = { ...game, updated_at: new Date().toISOString() };
         } else {
             games.push(game);
         }
-        
+
         localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
     }
 
@@ -61,7 +61,7 @@ class OfflineStorage {
     deleteGame(id: string): void {
         const games = this.getGames().filter(g => g.id !== id);
         localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
-        
+
         // Also clear current game if it's the one being deleted
         if (this.getCurrentGameId() === id) {
             this.clearCurrentGame();
@@ -95,7 +95,7 @@ class OfflineStorage {
             timestamp: new Date().toISOString(),
             synced: false,
         };
-        
+
         actions.push(newAction);
         localStorage.setItem(STORAGE_KEYS.ACTIONS, JSON.stringify(actions));
     }
@@ -127,7 +127,7 @@ class OfflineStorage {
     createOfflineGame(playerNames: string[]): OfflineGame {
         const now = new Date().toISOString();
         const gameId = this.generateId();
-        
+
         const game: OfflineGame = {
             id: gameId,
             players: playerNames.map(name => ({
@@ -144,7 +144,7 @@ class OfflineStorage {
 
         this.saveGame(game);
         this.setCurrentGame(gameId);
-        
+
         this.queueAction({
             type: 'create_game',
             gameId,
@@ -164,9 +164,9 @@ class OfflineStorage {
         player.points += points;
         game.updated_at = new Date().toISOString();
         game.synced = false;
-        
+
         this.saveGame(game);
-        
+
         this.queueAction({
             type: 'add_points',
             gameId,
@@ -185,9 +185,9 @@ class OfflineStorage {
         game.ended_at = new Date().toISOString();
         game.updated_at = new Date().toISOString();
         game.synced = false;
-        
+
         this.saveGame(game);
-        
+
         this.queueAction({
             type: 'end_game',
             gameId,

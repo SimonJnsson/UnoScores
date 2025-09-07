@@ -4,23 +4,42 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useOffline } from '@/hooks/use-offline';
 import OfflineGame from '@/pages/Game/Offline';
-import { PlusIcon, PlayIcon, UsersIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PlayIcon, UsersIcon, TrophyIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
-export default function GameIndex() {
+interface Player {
+    id: number;
+    name: string;
+    points: number;
+}
+
+interface Game {
+    id: number;
+    status: string;
+    players: Player[];
+    winner?: Player;
+    created_at: string;
+}
+
+interface GameIndexProps {
+    activeGames: Game[];
+}
+
+export default function GameIndex({ activeGames = [] }: GameIndexProps) {
     const [players, setPlayers] = useState(['', '']);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showOfflineGame, setShowOfflineGame] = useState(false);
-    const { 
-        currentOfflineGame, 
-        isOnline, 
-        isOffline, 
+    const {
+        currentOfflineGame,
+        isOnline,
+        isOffline,
         createOfflineGame,
         storageStats,
         isSyncing,
-        lastSyncResult 
+        lastSyncResult,
+        refreshCurrentGame
     } = useOffline();
 
     const addPlayer = () => {
@@ -44,14 +63,26 @@ export default function GameIndex() {
     const handleStartGame = () => {
         const validPlayers = players.filter(p => p.trim()).map(p => p.trim());
         if (validPlayers.length >= 2) {
-            createOfflineGame(validPlayers);
-            setShowOfflineGame(true);
-            setShowCreateForm(false);
+            if (isOnline) {
+                // Create online game via API
+                router.post('/games', {
+                    players: validPlayers
+                });
+            } else {
+                // Create offline game
+                createOfflineGame(validPlayers);
+                setShowOfflineGame(true);
+                setShowCreateForm(false);
+            }
         }
     };
 
     const handleContinueGame = () => {
-        setShowOfflineGame(true);
+        console.log(currentOfflineGame)
+        if (currentOfflineGame) {
+            refreshCurrentGame(); // Refresh game data before showing
+            setShowOfflineGame(true);
+        }
     };
 
     const handleNewGame = () => {
@@ -68,199 +99,170 @@ export default function GameIndex() {
     return (
         <AppLayout>
             <Head title="UNO Game" />
-            
-            <div className="min-h-screen bg-gradient-to-br from-red-500 via-yellow-500 to-blue-500 p-4">
+
+            <div className="min-h-screen bg-gray-800 p-4">
                 {/* Header */}
-                <div className="text-center mb-6">
-                    <h1 className="text-4xl md:text-6xl font-black text-white mb-2 drop-shadow-lg transform -rotate-2">
-                        UNO!
-                    </h1>
-                    <div className="flex items-center justify-center gap-2">
-                        <Badge variant={isOnline ? "default" : "secondary"} className="bg-white/20 text-white border-white/30">
-                            {isOnline ? "🟢 Online" : "🔴 Offline"}
-                        </Badge>
-                        {isSyncing && (
-                            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                                🔄 Syncing...
-                            </Badge>
-                        )}
+                <div className="flex items-center justify-between mb-8">
+                    <Button
+                        onClick={() => router.visit('/dashboard')}
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:bg-gray-700 hover:text-white"
+                    >
+                        <Cog6ToothIcon className="h-5 w-5" />
+                    </Button>
+
+                    <div className="text-center">
+                        <h1 className="text-6xl font-black text-white font-mono tracking-wider">
+                            UNO
+                        </h1>
                     </div>
+
+                    <Badge variant={isOnline ? "default" : "secondary"} className="bg-gray-700 text-gray-300 border-gray-600">
+                        {isOnline ? "●" : "○"}
+                    </Badge>
                 </div>
 
                 {/* Offline Notice */}
                 {isOffline && (
-                    <Card className="mb-6 border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-950">
-                        <CardContent className="pt-4">
-                            <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
-                                <div className="text-2xl">🎮</div>
-                                <div>
-                                    <p className="font-semibold">Playing Offline</p>
-                                    <p className="text-sm">Your games will sync when you're back online!</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div className="max-w-sm mx-auto mb-6 bg-yellow-400 text-black p-3 rounded-xl text-center font-bold">
+                        ⚡ OFFLINE MODE
+                    </div>
                 )}
 
                 {/* Main Game Area */}
-                <div className="max-w-md mx-auto space-y-4">
-                    
-                    {/* Continue Current Game */}
+                <div className="max-w-sm mx-auto space-y-4">
+
+                    {/* Continue Active Online Games */}
+                    {isOnline && activeGames.length > 0 && activeGames.map((game) => (
+                        <div key={`online-${game.id}`} className="bg-blue-500 rounded-xl p-6 text-center shadow-xl transform hover:scale-105 transition-transform">
+                            <div className="text-8xl font-black text-white mb-3 font-mono">▶</div>
+                            <h2 className="text-xl font-bold text-white mb-2">CONTINUE</h2>
+                            <p className="text-blue-100 text-sm mb-4">
+                                {game.players.length} players • {game.status === 'waiting_for_players' ? 'WAITING' : 'ACTIVE'}
+                            </p>
+                            <Button
+                                onClick={() => router.visit(`/games/${game.id}`)}
+                                className="w-full bg-white hover:bg-gray-100 text-blue-600 font-bold py-3 text-lg rounded-lg"
+                            >
+                                PLAY
+                            </Button>
+                        </div>
+                    ))}
+
+                    {/* Continue Current Offline Game */}
                     {currentOfflineGame && (
-                        <Card className="border-4 border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 transform hover:scale-105 transition-transform">
-                            <CardHeader className="text-center">
-                                <div className="text-4xl mb-2">🎯</div>
-                                <CardTitle className="text-xl text-green-800 dark:text-green-200">
-                                    Continue Game
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="text-center space-y-3">
-                                <div className="flex items-center justify-center gap-4 text-sm text-green-700 dark:text-green-300">
-                                    <div className="flex items-center gap-1">
-                                        <UsersIcon className="h-4 w-4" />
-                                        {currentOfflineGame.players.length} players
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <TrophyIcon className="h-4 w-4" />
-                                        {currentOfflineGame.status}
-                                    </div>
-                                </div>
-                                <p className="text-xs text-green-600 dark:text-green-400">
-                                    Started {new Date(currentOfflineGame.started_at).toLocaleDateString()}
-                                </p>
-                                <Button 
-                                    onClick={handleContinueGame}
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 text-lg"
-                                    size="lg"
-                                >
-                                    <PlayIcon className="h-5 w-5 mr-2" />
-                                    Continue Playing
-                                </Button>
-                            </CardContent>
-                        </Card>
+                        <div className="bg-green-500 rounded-xl p-6 text-center shadow-xl transform hover:scale-105 transition-transform">
+                            <div className="text-8xl font-black text-white mb-3 font-mono">▶</div>
+                            <h2 className="text-xl font-bold text-white mb-2">CONTINUE</h2>
+                            <p className="text-green-100 text-sm mb-4">
+                                {currentOfflineGame.players.length} players • {currentOfflineGame.status}
+                            </p>
+                            <Button
+                                onClick={handleContinueGame}
+                                className="w-full bg-white hover:bg-gray-100 text-green-600 font-bold py-3 text-lg rounded-lg"
+                            >
+                                PLAY
+                            </Button>
+                        </div>
                     )}
 
                     {/* New Game Card */}
                     {!showCreateForm && (
-                        <Card className="border-4 border-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 transform hover:scale-105 transition-transform">
-                            <CardHeader className="text-center">
-                                <div className="text-4xl mb-2">🎲</div>
-                                <CardTitle className="text-xl text-blue-800 dark:text-blue-200">
-                                    Start New Game
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="text-center">
-                                <p className="text-blue-600 dark:text-blue-400 mb-4">
-                                    Gather 2-10 players and let the fun begin!
-                                </p>
-                                <Button 
-                                    onClick={handleNewGame}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 text-lg"
-                                    size="lg"
-                                >
-                                    <PlusIcon className="h-5 w-5 mr-2" />
-                                    New Game
-                                </Button>
-                            </CardContent>
-                        </Card>
+                        <div className="bg-red-500 rounded-xl p-6 text-center shadow-xl transform hover:scale-105 transition-transform">
+                            <div className="text-8xl font-black text-white mb-3 font-mono">+</div>
+                            <h2 className="text-xl font-bold text-white mb-2">NEW GAME</h2>
+                            <p className="text-red-100 text-sm mb-4">
+                                2-10 players
+                            </p>
+                            <Button
+                                onClick={handleNewGame}
+                                className="w-full bg-white hover:bg-gray-100 text-red-600 font-bold py-3 text-lg rounded-lg"
+                            >
+                                START
+                            </Button>
+                        </div>
                     )}
 
                     {/* Create Game Form */}
                     {showCreateForm && (
-                        <Card className="border-4 border-purple-400 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
-                            <CardHeader className="text-center">
-                                <div className="text-3xl mb-2">👥</div>
-                                <CardTitle className="text-xl text-purple-800 dark:text-purple-200">
-                                    Add Players
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-3">
-                                    {players.map((player, index) => (
-                                        <div key={index} className="flex gap-2">
-                                            <Input
-                                                type="text"
-                                                placeholder={`Player ${index + 1}`}
-                                                value={player}
-                                                onChange={(e) => updatePlayer(index, e.target.value)}
-                                                className="flex-1 border-2 border-purple-200 focus:border-purple-400 font-medium text-lg py-3"
-                                            />
-                                            {players.length > 2 && (
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={() => removePlayer(index)}
-                                                    className="border-2 border-red-300 text-red-600 hover:bg-red-50 p-3"
-                                                >
-                                                    ✕
-                                                </Button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={addPlayer}
-                                        disabled={players.length >= 10}
-                                        className="flex-1 border-2 border-purple-300 text-purple-700 hover:bg-purple-50 font-bold py-3"
-                                    >
-                                        <PlusIcon className="h-4 w-4 mr-1" />
-                                        Add Player
-                                    </Button>
-                                </div>
-
-                                <div className="flex gap-2 pt-2">
-                                    <Button
-                                        onClick={() => setShowCreateForm(false)}
-                                        variant="outline"
-                                        className="flex-1 border-2 border-gray-300 py-3"
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        onClick={handleStartGame}
-                                        disabled={players.filter(p => p.trim()).length < 2}
-                                        className="flex-1 bg-gradient-to-r from-red-500 to-blue-500 hover:from-red-600 hover:to-blue-600 text-white font-bold py-3 text-lg"
-                                    >
-                                        <PlayIcon className="h-5 w-5 mr-2" />
-                                        Start!
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Stats Card */}
-                    {storageStats.totalGames > 0 && (
-                        <Card className="border-2 border-orange-300 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-950 dark:to-yellow-950">
-                            <CardContent className="pt-4">
-                                <div className="text-center">
-                                    <div className="text-2xl mb-2">📊</div>
-                                    <div className="grid grid-cols-3 gap-4 text-sm">
-                                        <div>
-                                            <div className="font-bold text-xl text-orange-600">{storageStats.totalGames}</div>
-                                            <div className="text-orange-500">Games</div>
-                                        </div>
-                                        {storageStats.unsyncedGames > 0 && (
-                                            <div>
-                                                <div className="font-bold text-xl text-yellow-600">{storageStats.unsyncedGames}</div>
-                                                <div className="text-yellow-500">Pending</div>
-                                            </div>
-                                        )}
-                                        {lastSyncResult?.success && (
-                                            <div>
-                                                <div className="text-xl">✅</div>
-                                                <div className="text-green-500">Synced</div>
-                                            </div>
+                        <div className="bg-blue-500 rounded-xl p-6 shadow-xl">
+                            <div className="text-center mb-4">
+                                <div className="text-6xl font-black text-white mb-2 font-mono">👥</div>
+                                <h2 className="text-xl font-bold text-white">ADD PLAYERS</h2>
+                            </div>
+                            <div className="space-y-3 mb-4">
+                                {players.map((player, index) => (
+                                    <div key={index} className="flex gap-2">
+                                        <Input
+                                            type="text"
+                                            placeholder={`Player ${index + 1}`}
+                                            value={player}
+                                            onChange={(e) => updatePlayer(index, e.target.value)}
+                                            className="flex-1 bg-white border-0 font-bold text-lg py-3 rounded-lg text-blue-600 placeholder-blue-300"
+                                        />
+                                        {players.length > 2 && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon"
+                                                onClick={() => removePlayer(index)}
+                                                className="bg-red-500 border-0 text-white hover:bg-red-600 font-bold text-xl rounded-lg p-3 w-12"
+                                            >
+                                                ×
+                                            </Button>
                                         )}
                                     </div>
+                                ))}
+                            </div>
+
+                            <Button
+                                type="button"
+                                onClick={addPlayer}
+                                disabled={players.length >= 10}
+                                className="w-full mb-4 bg-blue-400 hover:bg-blue-300 text-blue-800 font-bold py-3 rounded-lg"
+                            >
+                                + ADD PLAYER
+                            </Button>
+
+                            <div className="flex gap-2">
+                                <Button
+                                    onClick={() => setShowCreateForm(false)}
+                                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 rounded-lg"
+                                >
+                                    CANCEL
+                                </Button>
+                                <Button
+                                    onClick={handleStartGame}
+                                    disabled={players.filter(p => p.trim()).length < 2}
+                                    className="flex-1 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 rounded-lg"
+                                >
+                                    GO!
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Stats */}
+                    {storageStats.totalGames > 0 && (
+                        <div className="bg-gray-700 rounded-xl p-4 text-center">
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <div className="font-bold text-2xl text-white">{storageStats.totalGames}</div>
+                                    <div className="text-gray-400">GAMES</div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                                {storageStats.unsyncedGames > 0 && (
+                                    <div>
+                                        <div className="font-bold text-2xl text-yellow-400">{storageStats.unsyncedGames}</div>
+                                        <div className="text-gray-400">PENDING</div>
+                                    </div>
+                                )}
+                                <div>
+                                    <div className="text-2xl">{lastSyncResult?.success ? '✓' : '○'}</div>
+                                    <div className="text-gray-400">SYNC</div>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>

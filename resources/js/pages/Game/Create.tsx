@@ -3,13 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
+import { useOffline } from '@/hooks/use-offline';
+import { Badge } from '@/components/ui/badge';
+import OfflineGame from '@/pages/Game/Offline';
 
 export default function CreateGame() {
     const [players, setPlayers] = useState(['', '']);
+    const [showOfflineGame, setShowOfflineGame] = useState(false);
     const { data, setData, post, processing, errors } = useForm({
         players: ['', ''],
     });
+    const { isOnline, isOffline, createOfflineGame } = useOffline();
 
     const addPlayer = () => {
         const newPlayers = [...players, ''];
@@ -32,8 +37,29 @@ export default function CreateGame() {
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        post('/games');
+        
+        const validPlayers = players.filter(p => p.trim()).map(p => p.trim());
+        
+        if (isOffline) {
+            // Create offline game and show it directly
+            const game = createOfflineGame(validPlayers);
+            setShowOfflineGame(true);
+        } else {
+            // Try online first, fallback to offline
+            post('/games', {
+                onError: () => {
+                    // If server is unreachable, create offline game
+                    const game = createOfflineGame(validPlayers);
+                    setShowOfflineGame(true);
+                }
+            });
+        }
     };
+
+    // If offline game is created, show the game interface directly
+    if (showOfflineGame) {
+        return <OfflineGame onBackToCreate={() => setShowOfflineGame(false)} />;
+    }
 
     return (
         <AppLayout>
@@ -41,7 +67,18 @@ export default function CreateGame() {
             
             <div className="max-w-2xl mx-auto p-6">
                 <Card className="p-6">
-                    <h1 className="text-2xl font-bold mb-6">Start New UNO Game</h1>
+                    <div className="flex items-center justify-between mb-6">
+                        <h1 className="text-2xl font-bold">Start New UNO Game</h1>
+                        <Badge variant={isOnline ? "default" : "secondary"}>
+                            {isOnline ? "Online" : "Offline"}
+                        </Badge>
+                    </div>
+                    
+                    {isOffline && (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-200">
+                            <p><strong>Offline Mode:</strong> Your game will be saved locally and synced when you're back online.</p>
+                        </div>
+                    )}
                     
                     <form onSubmit={submit} className="space-y-6">
                         <div>
